@@ -23,7 +23,7 @@ jobs:
           if [[ "$last_tag" == "v0.0.0" ]]; then
             tag="v0.0.1"
           else
-            version=$(echo "$last_tag" | awk -F. '{print $1"."$2"."$3+1}')
+            version=$(echo "$last_tag" | awk '{print tolower($0)}' | awk -F. '{$NF+=1; OFS="."; print $0}')
             tag=$(git log --oneline "$last_tag"..HEAD --pretty=format:"${version}")
           fi
           echo "::set-output name=tag::${branch_name}-${tag}"
@@ -49,6 +49,6 @@ jobs:
       - name: Build and push Docker image
         run: |
           repository_name=$(echo "${GITHUB_REPOSITORY}" | awk '{print tolower($0)}')
-          image_tag="${repository_name}-${GITHUB_REF##*/}-${{ needs.determine-version.outputs.tag }}"
-          docker build . --file Dockerfile --tag "ghcr.io/${{ github.repository }}/${image_tag}"
-          docker push "ghcr.io/${{ github.repository }}/${image_tag}"
+          image_tag="${GITHUB_REF##*/}-${{ needs.determine-version.outputs.tag }}"
+          docker build . --file Dockerfile --tag "ghcr.io/${repository_name}/${image_tag}"
+          docker push "ghcr.io/${repository_name}/${image_tag}"
