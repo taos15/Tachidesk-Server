@@ -19,8 +19,8 @@ jobs:
         id: tag
         run: |
           branch_name=${GITHUB_REF#refs/heads/}
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null)
-          if [[ -z "$last_tag" ]]; then
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
+          if [[ "$last_tag" == "v0.0.0" ]]; then
             tag="v0.0.1"
           else
             version=$(echo "$last_tag" | awk -F. '{print $1"."$2"."$3+1}')
