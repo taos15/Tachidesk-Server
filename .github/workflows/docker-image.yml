@@ -37,7 +37,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          repository_name=$(basename "${GITHUB_REPOSITORY}")
+          repository_name=$(basename "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
           image_tag="${repository_name}-${GITHUB_REF##*/}-${{ needs.determine-version.outputs.tag }}"
           docker build . --file Dockerfile --tag "${image_tag}"
           docker push "${image_tag}"
