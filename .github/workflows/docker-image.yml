@@ -19,11 +19,12 @@ jobs:
         id: tag
         run: |
           branch_name=${GITHUB_REF#refs/heads/}
-          last_tag=$(git describe --tags --abbrev=0)
-          version=$(echo $last_tag | awk -F. '{print $1"."$2"."$3+1}')
-          tag=$(git log --oneline $last_tag..HEAD --pretty=format:"${version}")
-          if [[ -z "$tag" ]]; then
-            tag=$last_tag
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null)
+          if [[ -z "$last_tag" ]]; then
+            tag="v0.0.1"
+          else
+            version=$(echo "$last_tag" | awk -F. '{print $1"."$2"."$3+1}')
+            tag=$(git log --oneline "$last_tag"..HEAD --pretty=format:"${version}")
           fi
           echo "::set-output name=tag::${branch_name}-${tag}"
 
