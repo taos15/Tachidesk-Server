@@ -1,29 +1,39 @@
-name: Docker Image CI
+name: Auto-generate Semantic Tags
 
 on:
   push:
     branches:
-      - dockerfile
-  pull_request:
-    branches:
-      - dockerfile
+      - '*'
 
 jobs:
-  build:
+  determine-version:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag ${{ github.repository_owner }}/${{ github.repository_name }}:${{ github.ref_slug }}
+      - name: Determine version
+        id: tag
+        run: |
+          last_tag=$(git describe --tags --abbrev=0)
+          version=$(echo $last_tag | awk -F. '{print $1"."$2"."$3+1}')
+          tag=$(git log --oneline $last_tag..HEAD --grep="(feat|fix)(\(.+\))?:\s(.+)" --pretty=format:"${version}")
+          if [[ -z "$tag" ]]; then
+            tag=$last_tag
+          fi
+          echo "::set-output name=tag::${tag}"
 
-      - name: Login to GitHub Packages
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  build-and-push:
+    needs: determine-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Push Docker image to GitHub Packages
-        run: docker push ${{ github.repository_owner }}/${{ github.repository_name }}:${{ github.ref_slug }}
+      - name: Build and push Docker image
+        run: |
+          docker build . --file Dockerfile --tag ${{ github.repository }}:${{ github.ref_slug }}-${{ needs.determine-version.outputs.tag }}
+          docker push ${{ github.repository }}:${{ github.ref_slug }}-${{ needs.determine-version.outputs.tag }}
