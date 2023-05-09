@@ -19,13 +19,15 @@ jobs:
         id: tag
         run: |
           branch_name=${GITHUB_REF#refs/heads/}
+          branch_name=$(echo "$branch_name" | awk '{print tolower($0)}') # Convert branch name to lowercase
           last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           if [[ "$last_tag" == "v0.0.0" ]]; then
             tag="v0.0.1"
           else
-            version=$(echo "$last_tag" | awk '{print tolower($0)}' | awk -F. '{$NF+=1; OFS="."; print $0}')
+            version=$(echo "$last_tag" | awk -F. '{$NF+=1; OFS="."; print $0}')
             tag=$(git log --oneline "$last_tag"..HEAD --pretty=format:"${version}")
           fi
+          tag=$(echo "$tag" | awk '{print tolower($0)}') # Convert tag to lowercase
           echo "::set-output name=tag::${branch_name}-${tag}"
 
   build-and-push:
@@ -48,7 +50,10 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          repository_name=$(echo "${GITHUB_REPOSITORY}" | awk '{print tolower($0)}')
-          image_tag="${GITHUB_REF##*/}-${{ needs.determine-version.outputs.tag }}"
+          repository_name=$(echo "${GITHUB_REPOSITORY}" | awk '{print tolower($0)}') # Convert repository name to lowercase
+          branch_name=${GITHUB_REF#refs/heads/}
+          branch_name=$(echo "$branch_name" | awk '{print tolower($0)}') # Convert branch name to lowercase
+          image_tag="${branch_name}-${{ needs.determine-version.outputs.tag }}"
+          image_tag=$(echo "$image_tag" | awk '{print tolower($0)}') # Convert image tag to lowercase
           docker build . --file Dockerfile --tag "ghcr.io/${repository_name}/${image_tag}"
           docker push "ghcr.io/${repository_name}/${image_tag}"
