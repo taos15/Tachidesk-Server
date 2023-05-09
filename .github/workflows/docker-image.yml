@@ -13,12 +13,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Determine version
         id: tag
         run: |
-          branch_name=${GITHUB_REF#refs/heads/}
+          branch_name=${{ github.ref }}
           branch_name=$(echo "$branch_name" | awk '{print tolower($0)}') # Convert branch name to lowercase
           last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           if [[ "$last_tag" == "v0.0.0" ]]; then
@@ -39,7 +39,7 @@ jobs:
       actions: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Configure Docker credentials
         uses: docker/login-action@v1
@@ -50,8 +50,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          repository_name=$(echo "${GITHUB_REPOSITORY}" | awk '{print tolower($0)}') # Convert repository name to lowercase
-          branch_name=${GITHUB_REF#refs/heads/}
+          repository_name=$(echo "${{ github.repository }}" | awk '{print tolower($0)}') # Convert repository name to lowercase
+          branch_name=${{ github.ref }}
           branch_name=$(echo "$branch_name" | awk '{print tolower($0)}') # Convert branch name to lowercase
           image_tag="${branch_name}-${{ needs.determine-version.outputs.tag }}"
           image_tag=$(echo "$image_tag" | awk '{print tolower($0)}') # Convert image tag to lowercase
