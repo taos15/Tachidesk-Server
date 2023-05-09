@@ -20,6 +20,19 @@ jobs:
           tag=${{ github.event.workflow_run.outputs.tag }}
           echo "::set-output name=tag::${tag}"
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Git Login
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { execSync } = require('child_process');
+            execSync('git remote set-url origin https://github.com/${{ github.repository }}.git');
+
       - name: Create Git Tag
         run: |
           git tag ${{ needs.create-tag.outputs.tag }}
