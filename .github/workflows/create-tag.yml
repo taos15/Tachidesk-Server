@@ -1,0 +1,26 @@
+name: Create Git Tag
+
+on:
+  workflow_run:
+    workflows: ["Auto-generate Semantic Tags"]
+    types:
+      - completed
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Determine version
+        id: tag
+        run: |
+          branch_name=${{ github.event.workflow_run.head_branch }}
+          tag=${{ github.event.workflow_run.outputs.tag }}
+          echo "::set-output name=tag::${tag}"
+
+      - name: Create Git Tag
+        run: |
+          git tag ${{ needs.create-tag.outputs.tag }}
+          git push origin ${{ needs.create-tag.outputs.tag }}
