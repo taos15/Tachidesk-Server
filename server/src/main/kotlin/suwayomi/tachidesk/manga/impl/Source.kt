@@ -7,11 +7,10 @@ package suwayomi.tachidesk.manga.impl
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import android.app.Application
-import android.content.Context
+import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.ConfigurableSource
-import eu.kanade.tachiyomi.source.getPreferenceKey
+import eu.kanade.tachiyomi.source.sourcePreferences
 import io.javalin.plugin.json.JsonMapper
 import mu.KotlinLogging
 import org.jetbrains.exposed.sql.select
@@ -27,7 +26,6 @@ import suwayomi.tachidesk.manga.impl.util.source.GetCatalogueSource.unregisterCa
 import suwayomi.tachidesk.manga.model.dataclass.SourceDataClass
 import suwayomi.tachidesk.manga.model.table.ExtensionTable
 import suwayomi.tachidesk.manga.model.table.SourceTable
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import xyz.nulldev.androidcompat.androidimpl.CustomContext
 
@@ -48,7 +46,7 @@ object Source {
                     catalogueSource.supportsLatest,
                     catalogueSource is ConfigurableSource,
                     it[SourceTable.isNsfw],
-                    catalogueSource.toString()
+                    catalogueSource.toString(),
                 )
             }
         }
@@ -65,12 +63,12 @@ object Source {
                 source[SourceTable.name],
                 source[SourceTable.lang],
                 getExtensionIconUrl(
-                    extension[ExtensionTable.apkName]
+                    extension[ExtensionTable.apkName],
                 ),
                 catalogueSource.supportsLatest,
                 catalogueSource is ConfigurableSource,
                 source[SourceTable.isNsfw],
-                catalogueSource.toString()
+                catalogueSource.toString(),
             )
         }
     }
@@ -87,7 +85,7 @@ object Source {
      */
     data class PreferenceObject(
         val type: String,
-        val props: Any
+        val props: Any,
     )
 
     var preferenceScreenMap: MutableMap<Long, PreferenceScreen> = mutableMapOf()
@@ -96,11 +94,16 @@ object Source {
      *  Gets a source's PreferenceScreen, puts the result into [preferenceScreenMap]
      */
     fun getSourcePreferences(sourceId: Long): List<PreferenceObject> {
+        return getSourcePreferencesRaw(sourceId).map {
+            PreferenceObject(it::class.java.simpleName, it)
+        }
+    }
+
+    fun getSourcePreferencesRaw(sourceId: Long): List<Preference> {
         val source = getCatalogueSourceOrStub(sourceId)
 
         if (source is ConfigurableSource) {
-            val sourceShardPreferences =
-                Injekt.get<Application>().getSharedPreferences(source.getPreferenceKey(), Context.MODE_PRIVATE)
+            val sourceShardPreferences = source.sourcePreferences()
 
             val screen = PreferenceScreen(context)
             screen.sharedPreferences = sourceShardPreferences
@@ -109,32 +112,37 @@ object Source {
 
             preferenceScreenMap[sourceId] = screen
 
-            return screen.preferences.map {
-                PreferenceObject(it::class.java.simpleName, it)
-            }
+            return screen.preferences
         }
         return emptyList()
     }
 
     data class SourcePreferenceChange(
         val position: Int,
-        val value: String
+        val value: String,
     )
 
     private val jsonMapper by DI.global.instance<JsonMapper>()
 
-    @Suppress("IMPLICIT_CAST_TO_ANY", "UNCHECKED_CAST")
-    fun setSourcePreference(sourceId: Long, change: SourcePreferenceChange) {
+    fun setSourcePreference(
+        sourceId: Long,
+        position: Int,
+        value: String,
+        getValue: (Preference) -> Any = { pref ->
+            println(jsonMapper::class.java.name)
+            @Suppress("UNCHECKED_CAST")
+            when (pref.defaultValueType) {
+                "String" -> value
+                "Boolean" -> value.toBoolean()
+                "Set<String>" -> jsonMapper.fromJsonString(value, List::class.java as Class<List<String>>).toSet()
+                else -> throw RuntimeException("Unsupported type conversion")
+            }
+        },
+    ) {
         val screen = preferenceScreenMap[sourceId]!!
-        val pref = screen.preferences[change.position]
+        val pref = screen.preferences[position]
 
-        println(jsonMapper::class.java.name)
-        val newValue = when (pref.defaultValueType) {
-            "String" -> change.value
-            "Boolean" -> change.value.toBoolean()
-            "Set<String>" -> jsonMapper.fromJsonString(change.value, List::class.java as Class<List<String>>).toSet()
-            else -> throw RuntimeException("Unsupported type conversion")
-        }
+        val newValue = getValue(pref)
 
         pref.saveNewValue(newValue)
         pref.callChangeListener(newValue)

@@ -15,27 +15,28 @@ import suwayomi.tachidesk.graphql.server.primitives.Edge
 import suwayomi.tachidesk.graphql.server.primitives.Node
 import suwayomi.tachidesk.graphql.server.primitives.NodeList
 import suwayomi.tachidesk.graphql.server.primitives.PageInfo
+import suwayomi.tachidesk.manga.impl.extension.Extension
 import suwayomi.tachidesk.manga.model.table.ExtensionTable
 import java.util.concurrent.CompletableFuture
 
 class ExtensionType(
+    val repo: String?,
     val apkName: String,
     val iconUrl: String,
-
     val name: String,
     val pkgName: String,
     val versionName: String,
     val versionCode: Int,
     val lang: String,
     val isNsfw: Boolean,
-
     val isInstalled: Boolean,
     val hasUpdate: Boolean,
-    val isObsolete: Boolean
+    val isObsolete: Boolean,
 ) : Node {
     constructor(row: ResultRow) : this(
+        repo = row[ExtensionTable.repo],
         apkName = row[ExtensionTable.apkName],
-        iconUrl = row[ExtensionTable.iconUrl],
+        iconUrl = Extension.getExtensionIconUrl(row[ExtensionTable.apkName]),
         name = row[ExtensionTable.name],
         pkgName = row[ExtensionTable.pkgName],
         versionName = row[ExtensionTable.versionName],
@@ -44,7 +45,7 @@ class ExtensionType(
         isNsfw = row[ExtensionTable.isNsfw],
         isInstalled = row[ExtensionTable.isInstalled],
         hasUpdate = row[ExtensionTable.hasUpdate],
-        isObsolete = row[ExtensionTable.isObsolete]
+        isObsolete = row[ExtensionTable.isObsolete],
     )
 
     fun source(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<SourceNodeList> {
@@ -56,11 +57,11 @@ data class ExtensionNodeList(
     override val nodes: List<ExtensionType>,
     override val edges: List<ExtensionEdge>,
     override val pageInfo: PageInfo,
-    override val totalCount: Int
+    override val totalCount: Int,
 ) : NodeList() {
     data class ExtensionEdge(
         override val cursor: Cursor,
-        override val node: ExtensionType
+        override val node: ExtensionType,
     ) : Edge()
 
     companion object {
@@ -68,13 +69,14 @@ data class ExtensionNodeList(
             return ExtensionNodeList(
                 nodes = this,
                 edges = getEdges(),
-                pageInfo = PageInfo(
-                    hasNextPage = false,
-                    hasPreviousPage = false,
-                    startCursor = Cursor(0.toString()),
-                    endCursor = Cursor(lastIndex.toString())
-                ),
-                totalCount = size
+                pageInfo =
+                    PageInfo(
+                        hasNextPage = false,
+                        hasPreviousPage = false,
+                        startCursor = Cursor(0.toString()),
+                        endCursor = Cursor(lastIndex.toString()),
+                    ),
+                totalCount = size,
             )
         }
 
@@ -83,12 +85,12 @@ data class ExtensionNodeList(
             return listOf(
                 ExtensionEdge(
                     cursor = Cursor("0"),
-                    node = first()
+                    node = first(),
                 ),
                 ExtensionEdge(
                     cursor = Cursor(lastIndex.toString()),
-                    node = last()
-                )
+                    node = last(),
+                ),
             )
         }
     }

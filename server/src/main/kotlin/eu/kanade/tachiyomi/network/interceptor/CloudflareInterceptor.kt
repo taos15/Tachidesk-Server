@@ -1,31 +1,18 @@
 package eu.kanade.tachiyomi.network.interceptor
 
-import com.microsoft.playwright.Browser
-import com.microsoft.playwright.BrowserType.LaunchOptions
-import com.microsoft.playwright.Page
-import com.microsoft.playwright.Playwright
-import com.microsoft.playwright.PlaywrightException
 import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.network.interceptor.CFClearance.resolveWithWebView
 import mu.KotlinLogging
-import okhttp3.Cookie
-import okhttp3.HttpUrl
 import okhttp3.Interceptor
-import okhttp3.Request
 import okhttp3.Response
-import suwayomi.tachidesk.server.ServerConfig
-import suwayomi.tachidesk.server.serverConfig
 import uy.kohesive.injekt.injectLazy
 import java.io.IOException
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.DurationUnit
 
 class CloudflareInterceptor : Interceptor {
     private val logger = KotlinLogging.logger {}
 
     private val network: NetworkHelper by injectLazy()
 
-    @Synchronized
+    @Suppress("UNUSED_VARIABLE", "UNREACHABLE_CODE")
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
@@ -38,15 +25,15 @@ class CloudflareInterceptor : Interceptor {
             return originalResponse
         }
 
-        throw IOException("playwrite is diabled for v0.6.7")
+        throw IOException("Cloudflare bypass currently disabled ")
 
         logger.debug { "Cloudflare anti-bot is on, CloudflareInterceptor is kicking in..." }
 
         return try {
             originalResponse.close()
-            network.cookies.remove(originalRequest.url.toUri())
+            network.cookieStore.remove(originalRequest.url.toUri())
 
-            val request = resolveWithWebView(originalRequest)
+            val request = originalRequest // resolveWithWebView(originalRequest)
 
             chain.proceed(request)
         } catch (e: Exception) {
@@ -71,7 +58,7 @@ object CFClearance {
     private val logger = KotlinLogging.logger {}
     private val network: NetworkHelper by injectLazy()
 
-    init {
+    /*init {
         // Fix the default DriverJar issue by providing our own implementation
         // ref: https://github.com/microsoft/playwright-java/issues/1138
         System.setProperty("playwright.driver.impl", "suwayomi.tachidesk.server.util.DriverJar")
@@ -82,51 +69,56 @@ object CFClearance {
 
         logger.debug { "resolveWithWebView($url)" }
 
-        val cookies = Playwright.create().use { playwright ->
-            playwright.chromium().launch(
-                LaunchOptions()
-                    .setHeadless(false)
-                    .apply {
-                        if (serverConfig.socksProxyEnabled) {
-                            setProxy("socks5://${serverConfig.socksProxyHost}:${serverConfig.socksProxyPort}")
+        val cookies =
+            Playwright.create().use { playwright ->
+                playwright.chromium().launch(
+                    LaunchOptions()
+                        .setHeadless(false)
+                        .apply {
+                            if (serverConfig.socksProxyEnabled.value) {
+                                setProxy("socks5://${serverConfig.socksProxyHost.value}:${serverConfig.socksProxyPort.value}")
+                            }
+                        },
+                ).use { browser ->
+                    val userAgent = originalRequest.header("User-Agent")
+                    if (userAgent != null) {
+                        browser.newContext(Browser.NewContextOptions().setUserAgent(userAgent)).use { browserContext ->
+                            browserContext.newPage().use { getCookies(it, url) }
                         }
+                    } else {
+                        browser.newPage().use { getCookies(it, url) }
                     }
-            ).use { browser ->
-                val userAgent = originalRequest.header("User-Agent")
-                if (userAgent != null) {
-                    browser.newContext(Browser.NewContextOptions().setUserAgent(userAgent)).use { browserContext ->
-                        browserContext.newPage().use { getCookies(it, url) }
-                    }
-                } else {
-                    browser.newPage().use { getCookies(it, url) }
                 }
             }
-        }
 
         // Copy cookies to cookie store
         cookies.groupBy { it.domain }.forEach { (domain, cookies) ->
-            network.cookies.addAll(
-                url = HttpUrl.Builder()
-                    .scheme("http")
-                    .host(domain)
-                    .build(),
-                cookies = cookies
+            network.cookieStore.addAll(
+                url =
+                    HttpUrl.Builder()
+                        .scheme("http")
+                        .host(domain)
+                        .build(),
+                cookies = cookies,
             )
         }
         // Merge new and existing cookies for this request
         // Find the cookies that we need to merge into this request
-        val convertedForThisRequest = cookies.filter {
-            it.matches(originalRequest.url)
-        }
+        val convertedForThisRequest =
+            cookies.filter {
+                it.matches(originalRequest.url)
+            }
         // Extract cookies from current request
-        val existingCookies = Cookie.parseAll(
-            originalRequest.url,
-            originalRequest.headers
-        )
+        val existingCookies =
+            Cookie.parseAll(
+                originalRequest.url,
+                originalRequest.headers,
+            )
         // Filter out existing values of cookies that we are about to merge in
-        val filteredExisting = existingCookies.filter { existing ->
-            convertedForThisRequest.none { converted -> converted.name == existing.name }
-        }
+        val filteredExisting =
+            existingCookies.filter { existing ->
+                convertedForThisRequest.none { converted -> converted.name == existing.name }
+            }
         logger.trace { "Existing cookies" }
         logger.trace { existingCookies.joinToString("; ") }
         val newCookies = filteredExisting + convertedForThisRequest
@@ -135,16 +127,17 @@ object CFClearance {
         return originalRequest.newBuilder()
             .header("Cookie", newCookies.joinToString("; ") { "${it.name}=${it.value}" })
             .build()
-    }
+    }*/
 
     fun getWebViewUserAgent(): String {
-        return try {
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        /*return try {
             throw PlaywrightException("playwrite is diabled for v0.6.7")
 
             Playwright.create().use { playwright ->
                 playwright.chromium().launch(
                     LaunchOptions()
-                        .setHeadless(true)
+                        .setHeadless(true),
                 ).use { browser ->
                     browser.newPage().use { page ->
                         val userAgent = page.evaluate("() => {return navigator.userAgent}") as String
@@ -156,10 +149,13 @@ object CFClearance {
         } catch (e: PlaywrightException) {
             // Playwright might fail on headless environments like docker
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
-        }
+        }*/
     }
 
-    private fun getCookies(page: Page, url: String): List<Cookie> {
+    /*private fun getCookies(
+        page: Page,
+        url: String,
+    ): List<Cookie> {
         applyStealthInitScripts(page)
         page.navigate(url)
         val challengeResolved = waitForChallengeResolve(page)
@@ -199,7 +195,7 @@ object CFClearance {
             ServerConfig::class.java.getResource("/cloudflare-js/navigator.permissions.js")!!.readText(),
             ServerConfig::class.java.getResource("/cloudflare-js/navigator.webdriver.js")!!.readText(),
             ServerConfig::class.java.getResource("/cloudflare-js/chrome.runtime.js")!!.readText(),
-            ServerConfig::class.java.getResource("/cloudflare-js/chrome.plugin.js")!!.readText()
+            ServerConfig::class.java.getResource("/cloudflare-js/chrome.plugin.js")!!.readText(),
         )
     }
 
@@ -216,16 +212,17 @@ object CFClearance {
         val timeoutSeconds = 120
         repeat(timeoutSeconds) {
             page.waitForTimeout(1.seconds.toDouble(DurationUnit.MILLISECONDS))
-            val success = try {
-                page.querySelector("#challenge-form") == null
-            } catch (e: Exception) {
-                logger.debug(e) { "query Error" }
-                false
-            }
+            val success =
+                try {
+                    page.querySelector("#challenge-form") == null
+                } catch (e: Exception) {
+                    logger.debug(e) { "query Error" }
+                    false
+                }
             if (success) return true
         }
         return false
-    }
+    }*/
 
     private class CloudflareBypassException : Exception()
 }

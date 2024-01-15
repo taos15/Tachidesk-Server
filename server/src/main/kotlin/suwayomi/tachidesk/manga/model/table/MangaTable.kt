@@ -32,7 +32,6 @@ object MangaTable : IntIdTable() {
     val thumbnailUrlLastFetched = long("thumbnail_url_last_fetched").default(0)
 
     val inLibrary = bool("in_library").default(false)
-    val defaultCategory = bool("default_category").default(true)
     val inLibraryAt = long("in_library_at").default(0)
 
     // the [source] field name is used by some ancestor of IntIdTable
@@ -51,14 +50,11 @@ fun MangaTable.toDataClass(mangaEntry: ResultRow) =
     MangaDataClass(
         id = mangaEntry[this.id].value,
         sourceId = mangaEntry[sourceReference].toString(),
-
         url = mangaEntry[url],
         title = mangaEntry[title],
         thumbnailUrl = proxyThumbnailUrl(mangaEntry[this.id].value),
         thumbnailUrlLastFetched = mangaEntry[thumbnailUrlLastFetched],
-
         initialized = mangaEntry[initialized],
-
         artist = mangaEntry[artist],
         author = mangaEntry[author],
         description = mangaEntry[description],
@@ -70,7 +66,7 @@ fun MangaTable.toDataClass(mangaEntry: ResultRow) =
         realUrl = mangaEntry[realUrl],
         lastFetchedAt = mangaEntry[lastFetchedAt],
         chaptersLastFetchedAt = mangaEntry[chaptersLastFetchedAt],
-        updateStrategy = UpdateStrategy.valueOf(mangaEntry[updateStrategy])
+        updateStrategy = UpdateStrategy.valueOf(mangaEntry[updateStrategy]),
     )
 
 enum class MangaStatus(val value: Int) {
@@ -80,9 +76,10 @@ enum class MangaStatus(val value: Int) {
     LICENSED(3),
     PUBLISHING_FINISHED(4),
     CANCELLED(5),
-    ON_HIATUS(6);
+    ON_HIATUS(6),
+    ;
 
     companion object {
-        fun valueOf(value: Int): MangaStatus = values().find { it.value == value } ?: UNKNOWN
+        fun valueOf(value: Int): MangaStatus = entries.find { it.value == value } ?: UNKNOWN
     }
 }

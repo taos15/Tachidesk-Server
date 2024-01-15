@@ -15,6 +15,7 @@ import suwayomi.tachidesk.graphql.server.primitives.Edge
 import suwayomi.tachidesk.graphql.server.primitives.Node
 import suwayomi.tachidesk.graphql.server.primitives.NodeList
 import suwayomi.tachidesk.graphql.server.primitives.PageInfo
+import suwayomi.tachidesk.manga.model.dataclass.IncludeInUpdate
 import suwayomi.tachidesk.manga.model.table.CategoryTable
 import java.util.concurrent.CompletableFuture
 
@@ -22,13 +23,15 @@ class CategoryType(
     val id: Int,
     val order: Int,
     val name: String,
-    val default: Boolean
+    val default: Boolean,
+    val includeInUpdate: IncludeInUpdate,
 ) : Node {
     constructor(row: ResultRow) : this(
         row[CategoryTable.id].value,
         row[CategoryTable.order],
         row[CategoryTable.name],
-        row[CategoryTable.isDefault]
+        row[CategoryTable.isDefault],
+        IncludeInUpdate.fromValue(row[CategoryTable.includeInUpdate]),
     )
 
     fun mangas(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<MangaNodeList> {
@@ -44,11 +47,11 @@ data class CategoryNodeList(
     override val nodes: List<CategoryType>,
     override val edges: List<CategoryEdge>,
     override val pageInfo: PageInfo,
-    override val totalCount: Int
+    override val totalCount: Int,
 ) : NodeList() {
     data class CategoryEdge(
         override val cursor: Cursor,
-        override val node: CategoryType
+        override val node: CategoryType,
     ) : Edge()
 
     companion object {
@@ -56,13 +59,14 @@ data class CategoryNodeList(
             return CategoryNodeList(
                 nodes = this,
                 edges = getEdges(),
-                pageInfo = PageInfo(
-                    hasNextPage = false,
-                    hasPreviousPage = false,
-                    startCursor = Cursor(0.toString()),
-                    endCursor = Cursor(lastIndex.toString())
-                ),
-                totalCount = size
+                pageInfo =
+                    PageInfo(
+                        hasNextPage = false,
+                        hasPreviousPage = false,
+                        startCursor = Cursor(0.toString()),
+                        endCursor = Cursor(lastIndex.toString()),
+                    ),
+                totalCount = size,
             )
         }
 
@@ -71,12 +75,12 @@ data class CategoryNodeList(
             return listOf(
                 CategoryEdge(
                     cursor = Cursor("0"),
-                    node = first()
+                    node = first(),
                 ),
                 CategoryEdge(
                     cursor = Cursor(lastIndex.toString()),
-                    node = last()
-                )
+                    node = last(),
+                ),
             )
         }
     }

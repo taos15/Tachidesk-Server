@@ -63,15 +63,12 @@ internal class UpdateControllerTest : ApplicationTest() {
         assertEquals(3, updater.status.value.numberOfJobs)
     }
 
-    private fun createLibraryManga(
-        _title: String
-    ): Int {
+    private fun createLibraryManga(_title: String): Int {
         return transaction {
             MangaTable.insertAndGetId {
                 it[title] = _title
                 it[url] = _title
                 it[sourceReference] = 1
-                it[defaultCategory] = true
                 it[inLibrary] = true
             }.value
         }
@@ -82,7 +79,7 @@ internal class UpdateControllerTest : ApplicationTest() {
         clearTables(
             CategoryMangaTable,
             MangaTable,
-            CategoryTable
+            CategoryTable,
         )
         val updater by DI.global.instance<IUpdater>()
         runBlocking { updater.reset() }
