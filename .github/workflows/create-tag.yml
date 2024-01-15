@@ -28,7 +28,7 @@ jobs:
       - name: Git Login
         uses: actions/github-script@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             const { execSync } = require('child_process');
             execSync('git remote set-url origin https://github.com/${{ github.repository }}.git');
